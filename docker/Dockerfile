@@ -1,4 +1,6 @@
-FROM debian:stable-slim
+# The reference uses debian:stable-slim, which was bookworm (Wine 8.0) when its author
+# last verified it. Trixie's Wine 10.0 fails every PBO read with ERROR_NOACCESS.
+FROM debian:bookworm-slim
 
 # Download necessary packages
 RUN dpkg --add-architecture i386 && \
@@ -32,7 +34,8 @@ RUN W_OPT_UNATTENDED=1 xvfb-run winetricks sound=disabled windowmanagermanaged=n
 		vcrun2013 \
 		vcrun2015 \
 	2>/dev/null && \
-	rm -rf  ~/.cache ~/.config ~/.local /tmp/*
+	rm -rf  ~/.cache ~/.config ~/.local /tmp/* && \
+	date +%s > /wine32/.prefix-id
 
 # Pterodactyl: server files live in /home/container and run as a non-root user
 RUN useradd -m -d /home/container -s /bin/bash container

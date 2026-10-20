@@ -5,13 +5,15 @@ cd /home/container || exit 1
 
 # Wine refuses a prefix owned by another user. Pterodactyl runs containers as a
 # non-root user, so each server gets its own copy of the image's prefix
-# (built with dotnet462, vcrun2013 and vcrun2015).
+# (built with dotnet462, vcrun2013 and vcrun2015). The copy is replaced whenever
+# the image's prefix changes, since a prefix from another Wine version can break.
 if [[ -O /wine32 ]]; then
     export WINEPREFIX=/wine32
 else
     export WINEPREFIX=/home/container/.wine32
-    if [[ ! -f "${WINEPREFIX}/system.reg" ]]; then
-        echo "Copying Wine prefix to ${WINEPREFIX} (first start only)..."
+    if [[ ! -f "${WINEPREFIX}/system.reg" ]] || ! cmp -s /wine32/.prefix-id "${WINEPREFIX}/.prefix-id"; then
+        echo "Copying Wine prefix to ${WINEPREFIX} (first start after an image update)..."
+        rm -rf "${WINEPREFIX}"
         mkdir -p "${WINEPREFIX}"
         cp -a /wine32/. "${WINEPREFIX}/" 2>/dev/null
     fi
