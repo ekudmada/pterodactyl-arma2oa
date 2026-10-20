@@ -1,6 +1,8 @@
 #!/bin/bash
 ## Arma 2: Operation Arrowhead (Wine) - Pterodactyl installation script
-## Install image: steamcmd/steamcmd:latest (as used by the reference README)
+## Install image: debian:stable-slim (same base as the reference Dockerfile).
+## steamcmd/steamcmd can't be used: its ENTRYPOINT is steamcmd, and Wings passes
+## the install script as arguments to the image's entrypoint.
 ## Based on https://github.com/pridit-a2oa/docker-arma2oaserver-wine
 ##
 ## SteamCMD logs in with STEAM_USER / STEAM_PASS. No Steam Guard code is passed:
@@ -20,6 +22,19 @@ if [[ -z "${STEAM_USER}" || "${STEAM_USER}" == "anonymous" || -z "${STEAM_PASS}"
     exit 1
 fi
 
+#############################################################################
+# SteamCMD
+#############################################################################
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl lib32gcc-s1
+
+STEAMCMD=/root/steamcmd/steamcmd.sh
+mkdir -p /root/steamcmd
+curl -sSL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz | tar -xz -C /root/steamcmd || {
+    echo "INSTALL ERROR: Downloading SteamCMD failed."
+    exit 1
+}
+
 mkdir -p /mnt/server
 cd /mnt/server || exit 1
 
@@ -34,7 +49,7 @@ echo " (Email-code Steam Guard is not supported; use the mobile authenticator.)"
 echo "==========================================================================="
 echo ""
 
-steamcmd "+login \"${STEAM_USER}\" \"${STEAM_PASS}\"" +quit | tee /tmp/steam_login.log
+"${STEAMCMD}" "+login \"${STEAM_USER}\" \"${STEAM_PASS}\"" +quit | tee /tmp/steam_login.log
 login_status=${PIPESTATUS[0]}
 if [[ ${login_status} -ne 0 ]] || grep -qE "FAILED|Login Failure" /tmp/steam_login.log; then
     echo "INSTALL ERROR: Steam login failed (exit code ${login_status}). Check the credentials and"
@@ -50,7 +65,7 @@ app_update() { # <install dir> <app id> [beta branch]
     local dir=$1 appid=$2 beta=$3 attempt
     for (( attempt = 1; attempt <= MAX_ATTEMPTS; attempt++ )); do
         echo "app_update ${appid} (attempt ${attempt}/${MAX_ATTEMPTS})"
-        steamcmd +@sSteamCmdForcePlatformType windows +force_install_dir "${dir}" \
+        "${STEAMCMD}" +@sSteamCmdForcePlatformType windows +force_install_dir "${dir}" \
             "+login \"${STEAM_USER}\"" \
             +app_update "${appid}" ${beta:+-beta "${beta}"} validate +quit < /dev/null | tee /tmp/app_update.log
         grep -q "Success! App '${appid}'" /tmp/app_update.log && return 0
