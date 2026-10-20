@@ -26,7 +26,7 @@ The runtime setup is kept the same as the original: `debian:stable-slim`, Wine w
 - **Server folder.** The game lives directly in `/home/container` (the Pterodactyl server folder) rather than `/arma2oa/steamapps/common/Arma 2 Operation Arrowhead`.
 - **Non-root Wine prefix.** Pterodactyl runs containers as a non-root user and Wine refuses a prefix owned by someone else, so on first start each server copies `/wine32` into its own `.wine32` folder (about 1 GB).
 - **Ports.** On every start, `-port=` in `params` and `steamQueryPort` / `steamPort` in `server.cfg` are set from the server's allocation.
-- **Console.** `supervisord` sends the server's output to the panel console, and an extra program streams `server_console.log` so the panel can detect when the server is online.
+- **Console.** `supervisord` sends the server's output to the panel console, and extra programs stream `server_console.log` (so the panel can detect when the server is online) and `profiles/arma2oaserver.RPT` (lines prefixed with `[RPT]`) into the console.
 - **Winetricks settings.** `sound=disabled` and `windowmanagermanaged=n` are applied to `/wine32`. In the original they run before `WINEPREFIX` is set, so they apply to a different prefix.
 - **Debug output.** `WINEDEBUG=-all` is set to keep Wine's debug messages out of the console.
 - **Combined Operations.** Optionally downloads Arma 2 and hard-links its `AddOns` and `Dta` folders into the OA folder, as the original's "Shared Content" section describes.
