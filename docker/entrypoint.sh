@@ -25,6 +25,18 @@ export HEADLESS_CLIENT="${HEADLESS_CLIENT:-true}"
 # Pterodactyl mounts a fresh /tmp, so recreate the X11 socket folder for Xvfb.
 mkdir -p /tmp/.X11-unix 2>/dev/null
 
+# Wine keeps its shared memory in /tmp. Wings' default 100 MB tmpfs fills up while the
+# server loads PBOs, which fails with "File read error: ...,ERROR_NOACCESS" and a crash.
+TMP_MB=$(df -Pm /tmp 2>/dev/null | awk 'NR == 2 {print $2}')
+if [[ -n "${TMP_MB}" && "${TMP_MB}" -lt 1024 ]]; then
+    echo "=========================================================================="
+    echo " WARNING: /tmp is only ${TMP_MB} MB. The server will likely crash while loading"
+    echo " PBOs with \"File read error: ...,ERROR_NOACCESS\"."
+    echo " On the node, set docker.tmpfs_size to 2048 in /etc/pterodactyl/config.yml,"
+    echo " restart Wings (systemctl restart wings), then restart this server."
+    echo "=========================================================================="
+fi
+
 # Match the ports to the server's allocation: game port, +1 Steam query, +2 Steam.
 if [[ -f params ]]; then
     sed -i -E "s/^-port=.*/-port=${SERVER_PORT}/" params

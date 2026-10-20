@@ -13,6 +13,7 @@
 set -o pipefail
 
 OA_APPID=33930
+STEAMWORKS_REDIST_APPID=1007
 A2_DIR=/mnt/server/arma2
 MAX_ATTEMPTS=5
 
@@ -88,6 +89,13 @@ merge_dir() { # <folder name in Arma 2>
 
 app_update /mnt/server "${OA_APPID}" "${STEAM_BETA}" || {
     echo "INSTALL ERROR: Downloading Arma 2: Operation Arrowhead failed. Make sure the account owns it."
+    exit 1
+}
+
+# Steamworks SDK Redist: steamclient.dll, tier0_s.dll and vstdlib_s.dll, which the
+# server needs for its Steam connection since there's no Steam client under Wine.
+app_update /mnt/server "${STEAMWORKS_REDIST_APPID}" || {
+    echo "INSTALL ERROR: Downloading the Steamworks SDK Redist (app ${STEAMWORKS_REDIST_APPID}) failed."
     exit 1
 }
 

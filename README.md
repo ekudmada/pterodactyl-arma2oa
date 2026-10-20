@@ -22,7 +22,7 @@ This is an adaptation of **[pridit-a2oa/docker-arma2oaserver-wine](https://githu
 The runtime setup is kept the same as the original: Debian's packaged Wine, a 32-bit prefix at `/wine32` containing `dotnet462`, `vcrun2013` and `vcrun2015`, two Xvfb displays, the server started with `-par=params`, and the local `ArmA2OA.exe -client` connecting back to it. The differences are:
 
 - **Debian version.** The image is pinned to `debian:bookworm-slim` (Wine 8.0). The original uses `debian:stable-slim`, which was bookworm when its author last verified it. The current stable (trixie) ships Wine 10.0, which the original was never tested with.
-- **Game download.** The egg's installer runs in `debian:stable-slim`, downloads SteamCMD and installs the game into the server folder, instead of using a pre-filled Docker volume. The original README's `steamcmd/steamcmd` image can't be used as a Pterodactyl install container because its entrypoint is `steamcmd`.
+- **Game download.** The egg's installer runs in `debian:stable-slim`, downloads SteamCMD and installs the game plus the Steamworks SDK Redist (app 1007: `steamclient.dll`, `tier0_s.dll`, `vstdlib_s.dll`, which the server needs without a Steam client) into the server folder, instead of using a pre-filled Docker volume. The original README's `steamcmd/steamcmd` image can't be used as a Pterodactyl install container because its entrypoint is `steamcmd`.
 - **Steam login.** The installer logs in with a username and password only. If the account uses the Steam Guard mobile authenticator, approve the push notification in the Steam app while the install runs. Email-code Steam Guard is not supported.
 - **Server folder.** The game lives directly in `/home/container` (the Pterodactyl server folder) rather than `/arma2oa/steamapps/common/Arma 2 Operation Arrowhead`.
 - **Non-root Wine prefix.** Pterodactyl runs containers as a non-root user and Wine refuses a prefix owned by someone else, so each server copies `/wine32` into its own `.wine32` folder (about 1 GB) on first start, and again whenever an image update changes the prefix.
@@ -39,8 +39,20 @@ The runtime setup is kept the same as the original: Debian's packaged Wine, a 32
 - A Steam account that owns Arma 2: Operation Arrowhead (and Arma 2 for Combined Operations), with the Steam Guard mobile authenticator if Steam Guard is enabled
 - 15 GB of disk for OA only, about 25 GB with Arma 2 content
 - Three consecutive UDP ports per server
+- Wings configured with a larger `/tmp` (`docker.tmpfs_size`, see below)
 
 ## Setup
+
+### Before you start: raise Wings' /tmp size
+
+Wings gives every server container a 100 MB `/tmp` by default. Wine keeps its shared memory there, and Arma fills it while loading PBOs, so the server crashes on startup with `File read error: ...,ERROR_NOACCESS`. On each node, set `tmpfs_size` under `docker:` in `/etc/pterodactyl/config.yml`:
+
+```yaml
+docker:
+  tmpfs_size: 2048
+```
+
+Then restart Wings with `systemctl restart wings`. The setting applies to every server on the node, but a tmpfs only uses RAM for what is actually stored in it. The server prints a warning in its console on start if `/tmp` is smaller than 1 GB.
 
 ### 1. Import the egg
 
@@ -118,5 +130,6 @@ The original Dockerfile downloads the latest Winetricks at build time, so rebuil
 - **`arma2oaserver.exe not found`:** the install didn't finish. Reinstall the server.
 - **Steam login fails:** check the credentials, reinstall, and approve the push notification promptly.
 - **Image pull fails:** make sure the GHCR package is public, or build the image on the node.
+- **`File read error: ...,ERROR_NOACCESS` on startup:** `/tmp` is too small. See [Before you start](#before-you-start-raise-wings-tmp-size).
 - **Server keeps restarting:** try setting Headless Client to `false`.
 - **Editing scripts on Windows:** files in `docker/` and `*.sh` must keep LF line endings. `.gitattributes` enforces this for git checkouts.
