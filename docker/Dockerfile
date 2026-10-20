@@ -1,5 +1,5 @@
 # The reference uses debian:stable-slim, which was bookworm (Wine 8.0) when its author
-# last verified it. Trixie's Wine 10.0 fails every PBO read with ERROR_NOACCESS.
+# last verified it, so pin that release.
 FROM debian:bookworm-slim
 
 # Download necessary packages

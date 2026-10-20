@@ -21,7 +21,7 @@ This is an adaptation of **[pridit-a2oa/docker-arma2oaserver-wine](https://githu
 
 The runtime setup is kept the same as the original: Debian's packaged Wine, a 32-bit prefix at `/wine32` containing `dotnet462`, `vcrun2013` and `vcrun2015`, two Xvfb displays, the server started with `-par=params -profiles=profiles`, and the local `ArmA2OA.exe -client` connecting back to it. The differences are:
 
-- **Debian version.** The image is pinned to `debian:bookworm-slim` (Wine 8.0). The original uses `debian:stable-slim`, which was bookworm when its author last verified it; the current stable (trixie, Wine 10.0) makes the server fail to read any PBO (`File read error: ... ERROR_NOACCESS`) and crash.
+- **Debian version.** The image is pinned to `debian:bookworm-slim` (Wine 8.0). The original uses `debian:stable-slim`, which was bookworm when its author last verified it. The current stable (trixie) ships Wine 10.0, which the original was never tested with.
 - **Game download.** The egg's installer runs in `debian:stable-slim`, downloads SteamCMD and installs the game into the server folder, instead of using a pre-filled Docker volume. The original README's `steamcmd/steamcmd` image can't be used as a Pterodactyl install container because its entrypoint is `steamcmd`.
 - **Steam login.** The installer logs in with a username and password only. If the account uses the Steam Guard mobile authenticator, approve the push notification in the Steam app while the install runs. Email-code Steam Guard is not supported.
 - **Server folder.** The game lives directly in `/home/container` (the Pterodactyl server folder) rather than `/arma2oa/steamapps/common/Arma 2 Operation Arrowhead`.

@@ -41,6 +41,18 @@ if [[ ! -f arma2oaserver.exe ]]; then
     exit 1
 fi
 
+# Show what arma2oaserver.exe is launched with: the command from supervisord.conf
+# and the options it reads from the params file.
+server_cmd=$(awk '/^\[program:arma2oaserver\]/ {f=1; next} /^\[/ {f=0}
+    f && /^command=/ {sub(/^command=bash -c /, ""); gsub(/\047/, ""); print}' /supervisord.conf)
+echo "Server command: ${server_cmd}"
+if [[ -f params ]]; then
+    echo "params:"
+    tr -d '\r' < params | sed -e '/^[[:space:]]*$/d' -e 's/^/    /'
+else
+    echo "params: (file not found)"
+fi
+
 MODIFIED_STARTUP=$(echo ${STARTUP} | sed -e 's/{{/${/g' -e 's/}}/}/g')
 echo ":/home/container$ ${MODIFIED_STARTUP}"
 eval "exec ${MODIFIED_STARTUP}"
