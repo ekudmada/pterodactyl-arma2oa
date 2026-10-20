@@ -30,6 +30,7 @@ The runtime setup is kept the same as the original: Debian's packaged Wine, a 32
 - **Profiles folder.** `-profiles` is set in `params` instead of on the command line, so the whole launch line is in one file. If `params` has no `-profiles=` line, `-profiles=profiles` is added on start. The console follows whichever folder `params` names.
 - **Console.** `supervisord` sends the server's output to the panel console, and extra programs stream `server_console.log` (so the panel can detect when the server is online) and `arma2oaserver.RPT` from the profiles folder (lines prefixed with `[RPT]`) into the console.
 - **Winetricks settings.** `sound=disabled` and `windowmanagermanaged=n` are applied to `/wine32`. In the original they run before `WINEPREFIX` is set, so they apply to a different prefix.
+- **Wine user profile.** On every start, `AppData\LocalLow` is created in the Wine user profiles. Wine doesn't create it, and without it Windows' certificate cache fails while `steamclient.dll` connects to Steam, which crashes the server right after `Initializing Steam server`.
 - **Debug output.** `WINEDEBUG=-all` is set to keep Wine's debug messages out of the console.
 - **Combined Operations.** Optionally downloads Arma 2 and hard-links its `AddOns` and `Dta` folders into the OA folder, as the original's "Shared Content" section describes.
 

@@ -19,6 +19,17 @@ else
     fi
 fi
 export WINEARCH=win32
+
+# Wine doesn't create AppData\LocalLow. Without it, Windows' certificate cache
+# (cryptnet) fails while steamclient.dll connects to Steam, and the server crashes
+# and exits right after "Initializing Steam server". Wine names the profile after
+# the user, so cover the image's build user and whoever runs the server.
+for wine_user in root container "${USER}" "$(id -un 2>/dev/null)"; do
+    [[ -n "${wine_user}" ]] && mkdir -p "${WINEPREFIX}/drive_c/users/${wine_user}/AppData/LocalLow" 2>/dev/null
+done
+for profile in "${WINEPREFIX}"/drive_c/users/*/; do
+    [[ -L "${profile%/}" ]] || mkdir -p "${profile}AppData/LocalLow" 2>/dev/null
+done
 export WINEDEBUG="${WINEDEBUG:--all}"
 export HEADLESS_CLIENT="${HEADLESS_CLIENT:-true}"
 
