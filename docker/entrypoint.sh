@@ -74,16 +74,25 @@ PROFILES_DIR=${PROFILES_DIR#[Zz]:}
 export PROFILES_DIR
 mkdir -p "${PROFILES_DIR}" 2>/dev/null
 
+# Some options only work on the real command line, not in the .par file: Arma ignores
+# -exThreads and -malloc there, and extensions such as HiveExt find their folder (ini
+# and log) from -profiles on the command line. Pass those through from params too,
+# shell-quoted for supervisord.conf.
+ARMA_CMDLINE=""
+while IFS= read -r line; do
+    line=${line//\"/}
+    ARMA_CMDLINE+="'${line//\'/\'\\\'\'}' "
+done < <(tr -d '\r' < params 2>/dev/null | grep -i -E '^"?-(profiles|exThreads|malloc)=')
+export ARMA_CMDLINE=${ARMA_CMDLINE% }
+
 if [[ ! -f arma2oaserver.exe ]]; then
     echo "arma2oaserver.exe not found. Reinstall the server to download the game files."
     exit 1
 fi
 
-# Show what arma2oaserver.exe is launched with: the command from supervisord.conf
-# and the options it reads from the params file.
-server_cmd=$(awk '/^\[program:arma2oaserver\]/ {f=1; next} /^\[/ {f=0}
-    f && /^command=/ {sub(/^command=bash -c /, ""); gsub(/\047/, ""); print}' /supervisord.conf)
-echo "Server command: ${server_cmd}"
+# Show what arma2oaserver.exe is launched with (see [program:arma2oaserver] in
+# supervisord.conf) and the options it reads from the params file.
+echo "Server command: wine arma2oaserver.exe -par=params ${ARMA_CMDLINE}"
 if [[ -f params ]]; then
     echo "params:"
     tr -d '\r' < params | awk 'NF {print "    " $0}'
