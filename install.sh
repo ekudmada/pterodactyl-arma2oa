@@ -111,6 +111,7 @@ cat > params <<'EOF'
 -config=server.cfg
 -cfg=basic.cfg
 -name=default
+-profiles=profiles
 EOF
 fi
 

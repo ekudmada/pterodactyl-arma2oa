@@ -19,7 +19,7 @@ This is an adaptation of **[pridit-a2oa/docker-arma2oaserver-wine](https://githu
 
 ## Changes from the original for Pterodactyl
 
-The runtime setup is kept the same as the original: Debian's packaged Wine, a 32-bit prefix at `/wine32` containing `dotnet462`, `vcrun2013` and `vcrun2015`, two Xvfb displays, the server started with `-par=params -profiles=profiles`, and the local `ArmA2OA.exe -client` connecting back to it. The differences are:
+The runtime setup is kept the same as the original: Debian's packaged Wine, a 32-bit prefix at `/wine32` containing `dotnet462`, `vcrun2013` and `vcrun2015`, two Xvfb displays, the server started with `-par=params`, and the local `ArmA2OA.exe -client` connecting back to it. The differences are:
 
 - **Debian version.** The image is pinned to `debian:bookworm-slim` (Wine 8.0). The original uses `debian:stable-slim`, which was bookworm when its author last verified it. The current stable (trixie) ships Wine 10.0, which the original was never tested with.
 - **Game download.** The egg's installer runs in `debian:stable-slim`, downloads SteamCMD and installs the game into the server folder, instead of using a pre-filled Docker volume. The original README's `steamcmd/steamcmd` image can't be used as a Pterodactyl install container because its entrypoint is `steamcmd`.
@@ -27,7 +27,8 @@ The runtime setup is kept the same as the original: Debian's packaged Wine, a 32
 - **Server folder.** The game lives directly in `/home/container` (the Pterodactyl server folder) rather than `/arma2oa/steamapps/common/Arma 2 Operation Arrowhead`.
 - **Non-root Wine prefix.** Pterodactyl runs containers as a non-root user and Wine refuses a prefix owned by someone else, so each server copies `/wine32` into its own `.wine32` folder (about 1 GB) on first start, and again whenever an image update changes the prefix.
 - **Ports.** On every start, `-port=` in `params` and `steamQueryPort` / `steamPort` in `server.cfg` are set from the server's allocation.
-- **Console.** `supervisord` sends the server's output to the panel console, and extra programs stream `server_console.log` (so the panel can detect when the server is online) and `profiles/arma2oaserver.RPT` (lines prefixed with `[RPT]`) into the console.
+- **Profiles folder.** `-profiles` is set in `params` instead of on the command line, so the whole launch line is in one file. If `params` has no `-profiles=` line, `-profiles=profiles` is added on start. The console follows whichever folder `params` names.
+- **Console.** `supervisord` sends the server's output to the panel console, and extra programs stream `server_console.log` (so the panel can detect when the server is online) and `arma2oaserver.RPT` from the profiles folder (lines prefixed with `[RPT]`) into the console.
 - **Winetricks settings.** `sound=disabled` and `windowmanagermanaged=n` are applied to `/wine32`. In the original they run before `WINEPREFIX` is set, so they apply to a different prefix.
 - **Debug output.** `WINEDEBUG=-all` is set to keep Wine's debug messages out of the console.
 - **Combined Operations.** Optionally downloads Arma 2 and hard-links its `AddOns` and `Dta` folders into the OA folder, as the original's "Shared Content" section describes.
@@ -81,7 +82,7 @@ Edit the files in the panel's file manager, the same way as in the original repo
 | --- | --- |
 | `server.cfg` | Hostname, passwords, max players, missions. `steamPort` and `steamQueryPort` are overwritten on start. |
 | `basic.cfg` | Network and performance settings |
-| `params` | Launch parameters. Add mods here, e.g. `-mod=@CBA_CO;@ACE`. `-port=` is overwritten on start. |
+| `params` | Launch parameters, one per line. Add mods here, e.g. `-mod=@CBA_CO;@ACE`. `-port=` is overwritten on start; `-profiles=` sets the profiles folder (default `profiles`). |
 | `MPMissions/` | Mission `.pbo` files |
 | `Expansion/Keys/` | Mod `.bikey` files |
 | `profiles/BattlEye/beserver.cfg` | RCON, e.g. `RConPassword CHANGEME` |
@@ -113,7 +114,7 @@ The original Dockerfile downloads the latest Winetricks at build time, so rebuil
 
 ## Troubleshooting
 
-- **Full server log:** `profiles/arma2oaserver.RPT`.
+- **Full server log:** `arma2oaserver.RPT` in the profiles folder (`profiles/` by default).
 - **`arma2oaserver.exe not found`:** the install didn't finish. Reinstall the server.
 - **Steam login fails:** check the credentials, reinstall, and approve the push notification promptly.
 - **Image pull fails:** make sure the GHCR package is public, or build the image on the node.

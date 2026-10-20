@@ -36,6 +36,21 @@ if [[ -f server.cfg ]]; then
 fi
 echo "Ports: game ${SERVER_PORT}/udp, Steam query $((SERVER_PORT + 1))/udp, Steam $((SERVER_PORT + 2))/udp"
 
+# The profiles folder (RPT log, BattlEye) is set in params; default to the reference's "profiles".
+if [[ -f params ]] && ! grep -qi '^"\?-profiles=' params; then
+    [[ -n "$(tail -c 1 params)" ]] && echo >> params
+    echo "-profiles=profiles" >> params
+fi
+# Resolve it to a Linux path for the console's log tails (supervisord.conf). Accepts
+# relative, Z:\ and /home/container/... forms, with \ or / separators.
+PROFILES_DIR=$(grep -i '^"\?-profiles=' params 2>/dev/null | tail -n 1 | cut -d= -f2- | tr -d '\r"')
+PROFILES_DIR=${PROFILES_DIR:-profiles}
+PROFILES_DIR=${PROFILES_DIR//\\//}
+PROFILES_DIR=${PROFILES_DIR#[Zz]:}
+[[ "${PROFILES_DIR}" == /* ]] || PROFILES_DIR="/home/container/${PROFILES_DIR}"
+export PROFILES_DIR
+mkdir -p "${PROFILES_DIR}" 2>/dev/null
+
 if [[ ! -f arma2oaserver.exe ]]; then
     echo "arma2oaserver.exe not found. Reinstall the server to download the game files."
     exit 1
@@ -48,7 +63,7 @@ server_cmd=$(awk '/^\[program:arma2oaserver\]/ {f=1; next} /^\[/ {f=0}
 echo "Server command: ${server_cmd}"
 if [[ -f params ]]; then
     echo "params:"
-    tr -d '\r' < params | sed -e '/^[[:space:]]*$/d' -e 's/^/    /'
+    tr -d '\r' < params | awk 'NF {print "    " $0}'
 else
     echo "params: (file not found)"
 fi
