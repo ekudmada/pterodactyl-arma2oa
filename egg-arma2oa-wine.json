@@ -71,6 +71,16 @@
             "field_type": "text"
         },
         {
+            "name": "Params File",
+            "description": "Launch parameters file to start with, relative to the server folder (passed as -par=). Keep one per setup, e.g. params_dayz and params_life, and switch here. The Steam ports are written into the server config that file names with -config=.",
+            "env_variable": "PARAMS_FILE",
+            "default_value": "params",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:128",
+            "field_type": "text"
+        },
+        {
             "name": "Headless Client",
             "description": "Run the local ArmA2OA.exe client on a second virtual display that connects to the server, as the reference supervisord.conf does. true or false.",
             "env_variable": "HEADLESS_CLIENT",

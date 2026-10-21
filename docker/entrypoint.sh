@@ -48,42 +48,67 @@ if [[ -n "${TMP_MB}" && "${TMP_MB}" -lt 1024 ]]; then
     echo "=========================================================================="
 fi
 
-# Match the ports to the server's allocation: game port, +1 Steam query, +2 Steam.
-if [[ -f params ]]; then
-    sed -i -E "s/^-port=.*/-port=${SERVER_PORT}/" params
-    grep -q '^-port=' params || printf '\n-port=%s\n' "${SERVER_PORT}" >> params
+# Which params file to start with (the egg's "Params File" variable), so several setups
+# such as params_dayz and params_life can sit side by side in the server folder.
+PARAMS=${PARAMS_FILE:-params}
+PARAMS=${PARAMS//\\//}
+if [[ ! -f "${PARAMS}" ]]; then
+    echo "Params file '${PARAMS}' not found in the server folder."
+    echo "Create it, or change Params File in the server's Startup settings."
+    exit 1
 fi
-if [[ -f server.cfg ]]; then
-    sed -i -E "s/^\s*steamQueryPort\s*=.*/steamQueryPort = $((SERVER_PORT + 1));/I" server.cfg
-    sed -i -E "s/^\s*steamPort\s*=.*/steamPort = $((SERVER_PORT + 2));/I" server.cfg
+
+# Turn a path from params into a Linux path. Accepts relative, Z:\ and
+# /home/container/... forms, with \ or / separators.
+to_linux_path() {
+    local path=${1//\\//}
+    path=${path#[Zz]:}
+    [[ "${path}" == /* ]] || path="/home/container/${path}"
+    printf '%s' "${path}"
+}
+
+# Last value of -<name>= in the params file, without quotes.
+param_value() {
+    tr -d '\r' < "${PARAMS}" | grep -i "^\"\?-$1=" | tail -n 1 | cut -d= -f2- | tr -d '"'
+}
+
+# Match the ports to the server's allocation: game port, +1 Steam query, +2 Steam.
+# The Steam ports go into the server config the params file uses (-config=).
+sed -i -E "s/^-port=.*/-port=${SERVER_PORT}/" "${PARAMS}"
+grep -q '^-port=' "${PARAMS}" || printf '\n-port=%s\n' "${SERVER_PORT}" >> "${PARAMS}"
+SERVER_CFG=$(param_value config)
+SERVER_CFG=$(to_linux_path "${SERVER_CFG:-server.cfg}")
+if [[ -f "${SERVER_CFG}" ]]; then
+    sed -i -E "s/^\s*steamQueryPort\s*=.*/steamQueryPort = $((SERVER_PORT + 1));/I" "${SERVER_CFG}"
+    sed -i -E "s/^\s*steamPort\s*=.*/steamPort = $((SERVER_PORT + 2));/I" "${SERVER_CFG}"
+else
+    echo "WARNING: server config ${SERVER_CFG} not found, Steam ports not set."
 fi
 echo "Ports: game ${SERVER_PORT}/udp, Steam query $((SERVER_PORT + 1))/udp, Steam $((SERVER_PORT + 2))/udp"
 
 # The profiles folder (RPT log, BattlEye) is set in params; default to the reference's "profiles".
-if [[ -f params ]] && ! grep -qi '^"\?-profiles=' params; then
-    [[ -n "$(tail -c 1 params)" ]] && echo >> params
-    echo "-profiles=profiles" >> params
+if ! grep -qi '^"\?-profiles=' "${PARAMS}"; then
+    [[ -n "$(tail -c 1 "${PARAMS}")" ]] && echo >> "${PARAMS}"
+    echo "-profiles=profiles" >> "${PARAMS}"
 fi
-# Resolve it to a Linux path for the console's log tails (supervisord.conf). Accepts
-# relative, Z:\ and /home/container/... forms, with \ or / separators.
-PROFILES_DIR=$(grep -i '^"\?-profiles=' params 2>/dev/null | tail -n 1 | cut -d= -f2- | tr -d '\r"')
-PROFILES_DIR=${PROFILES_DIR:-profiles}
-PROFILES_DIR=${PROFILES_DIR//\\//}
-PROFILES_DIR=${PROFILES_DIR#[Zz]:}
-[[ "${PROFILES_DIR}" == /* ]] || PROFILES_DIR="/home/container/${PROFILES_DIR}"
+# Linux path of it for the console's log tails (supervisord.conf).
+PROFILES_DIR=$(param_value profiles)
+PROFILES_DIR=$(to_linux_path "${PROFILES_DIR:-profiles}")
 export PROFILES_DIR
 mkdir -p "${PROFILES_DIR}" 2>/dev/null
 
-# Some options only work on the real command line, not in the .par file: Arma ignores
-# -exThreads and -malloc there, and extensions such as HiveExt find their folder (ini
-# and log) from -profiles on the command line. Pass those through from params too,
-# shell-quoted for supervisord.conf.
-ARMA_CMDLINE=""
+# Arguments for arma2oaserver.exe, shell-quoted for supervisord.conf: the params file,
+# plus the options that only work on the real command line, not in the .par file.
+# Arma ignores -exThreads and -malloc there, and extensions such as HiveExt find their
+# folder (ini and log) from -profiles on the command line.
+quote() {
+    printf "'%s'" "${1//\'/\'\\\'\'}"
+}
+ARMA_CMDLINE="$(quote "-par=${PARAMS}")"
 while IFS= read -r line; do
-    line=${line//\"/}
-    ARMA_CMDLINE+="'${line//\'/\'\\\'\'}' "
-done < <(tr -d '\r' < params 2>/dev/null | grep -i -E '^"?-(profiles|exThreads|malloc)=')
-export ARMA_CMDLINE=${ARMA_CMDLINE% }
+    ARMA_CMDLINE+=" $(quote "${line//\"/}")"
+done < <(tr -d '\r' < "${PARAMS}" | grep -i -E '^"?-(profiles|exThreads|malloc)=')
+export ARMA_CMDLINE
 
 if [[ ! -f arma2oaserver.exe ]]; then
     echo "arma2oaserver.exe not found. Reinstall the server to download the game files."
@@ -92,13 +117,9 @@ fi
 
 # Show what arma2oaserver.exe is launched with (see [program:arma2oaserver] in
 # supervisord.conf) and the options it reads from the params file.
-echo "Server command: wine arma2oaserver.exe -par=params ${ARMA_CMDLINE}"
-if [[ -f params ]]; then
-    echo "params:"
-    tr -d '\r' < params | awk 'NF {print "    " $0}'
-else
-    echo "params: (file not found)"
-fi
+echo "Server command: wine arma2oaserver.exe ${ARMA_CMDLINE}"
+echo "${PARAMS}:"
+tr -d '\r' < "${PARAMS}" | awk 'NF {print "    " $0}'
 
 MODIFIED_STARTUP=$(echo ${STARTUP} | sed -e 's/{{/${/g' -e 's/}}/}/g')
 echo ":/home/container$ ${MODIFIED_STARTUP}"

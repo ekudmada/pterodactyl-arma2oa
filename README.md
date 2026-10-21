@@ -26,7 +26,7 @@ The runtime setup is kept the same as the original: Debian's packaged Wine, a 32
 - **Steam login.** The installer logs in with a username and password only. If the account uses the Steam Guard mobile authenticator, approve the push notification in the Steam app while the install runs. Email-code Steam Guard is not supported.
 - **Server folder.** The game lives directly in `/home/container` (the Pterodactyl server folder) rather than `/arma2oa/steamapps/common/Arma 2 Operation Arrowhead`.
 - **Non-root Wine prefix.** Pterodactyl runs containers as a non-root user and Wine refuses a prefix owned by someone else, so each server copies `/wine32` into its own `.wine32` folder (about 1 GB) on first start, and again whenever an image update changes the prefix.
-- **Ports.** On every start, `-port=` in `params` and `steamQueryPort` / `steamPort` in `server.cfg` are set from the server's allocation.
+- **Ports.** On every start, `-port=` in the params file and `steamQueryPort` / `steamPort` in the server config it names with `-config=` (default `server.cfg`) are set from the server's allocation.
 - **Launch options in one file.** All options, including `-profiles`, are set in `params`. If `params` has no `-profiles=` line, `-profiles=profiles` is added on start, and the console follows whichever folder `params` names. Options that only work on the real command line (`-profiles`, `-exThreads`, `-malloc`) are copied from `params` onto the command line too: Arma ignores `-exThreads` and `-malloc` in a `.par` file, and server extensions such as Epoch's HiveExt can read `-profiles` from the command line to find their config and log folder.
 - **Console.** `supervisord` sends the server's output to the panel console, and extra programs stream `server_console.log` (so the panel can detect when the server is online) and `arma2oaserver.RPT` from the profiles folder (lines prefixed with `[RPT]`) into the console.
 - **Winetricks settings.** `sound=disabled` and `windowmanagermanaged=n` are applied to `/wine32`. In the original they run before `WINEPREFIX` is set, so they apply to a different prefix.
@@ -81,6 +81,7 @@ Under **Admin → Servers → Create New**, choose the egg, set the primary allo
 | Steam Password | Password for that account (no Steam Guard code) |
 | Arma 2 Content (Combined Operations) | `0` for OA only, `33900` for Arma 2 bought on Steam, `33910` for Arma 2 (RoW) |
 | Steam Beta Branch | Optional SteamCMD beta branch for OA (app 33930) |
+| Params File | Launch parameters file to start with, default `params`. See [Switching between setups](#switching-between-setups) |
 | Headless Client | `true` to run the local `ArmA2OA.exe -client` like the original, `false` to disable it |
 
 ### 4. Approve the Steam login
@@ -105,6 +106,22 @@ If you set a server `password`, set **Headless Client** to `false`: the local cl
 ### 6. Start
 
 The first start copies the Wine prefix, which takes a minute or two. The panel marks the server online when the console shows `Host identity created`. With an empty `class Missions`, log in as admin in game (`#login <passwordAdmin>`) and choose a mission with `#missions`.
+
+## Switching between setups
+
+To keep several setups on one server, for example DayZ Epoch and a Life mission such as Takistan Life, give each its own params file in the server folder, such as `params_dayz` and `params_life`. Each can point to its own server config, mods and profiles folder:
+
+```
+-server
+-port=2302
+-config=Life_Server_Config\server.cfg
+-cfg=Life_Server_Config\basic.cfg
+-profiles=Life_Server_Config
+-name=server
+-mod=@Life_Server
+```
+
+To switch, change **Params File** in the server's **Startup** tab and restart the server. On start, the server sets `-port=` in the chosen file and the Steam ports in the config it names with `-config=`, so every setup gets the right ports. Note that the Steam ports are only written if that config has `steamPort` and `steamQueryPort` lines, and the console only shows Arma's console output if the config sets `logFile = "server_console.log";`.
 
 ## Updating the game
 
